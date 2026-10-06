@@ -1,0 +1,25 @@
+name: verify-coupled
+on:
+  push:
+    branches: [verify-coupled]
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - run: git submodule update --init --depth 1 src/chrono_thirdparty/googletest
+      - run: sudo apt-get update && sudo apt-get install -y libeigen3-dev ninja-build clang-format-19
+      - name: clang-format check of the new test
+        run: |
+          git fetch --depth 2 origin test-assembly-acceleration-coupled
+          clang-format-19 --style=file src/tests/unit_tests/core/utest_CH_assembly_acceleration_coupled.cpp > formatted.cpp
+          diff -u src/tests/unit_tests/core/utest_CH_assembly_acceleration_coupled.cpp formatted.cpp || echo "FORMAT-DIFF"
+      - run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_DEMOS=OFF -DBUILD_BENCHMARKING=OFF
+      - run: cmake --build build --target utest_CH_assembly_acceleration utest_CH_assembly_acceleration_coupled
+      - name: existing single-link test
+        run: build/bin/utest_CH_assembly_acceleration
+      - name: new coupled test
+        run: build/bin/utest_CH_assembly_acceleration_coupled
